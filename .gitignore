@@ -1,2 +1,4 @@
 /logs/ 
 !/logs/r6-matches.log
+
+__pycache__
