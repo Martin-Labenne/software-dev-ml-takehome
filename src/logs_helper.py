@@ -30,12 +30,14 @@ def store_matchs(
 
 def generate_matchs(n_matchs:int) -> pd.DataFrame: 
     """
-    Generate a DataFrame containing simulated match data for a gaming scenario.
+    Generate a DataFrame containing simulated match data.
 
     This function creates a DataFrame representing match records, including player IDs, match IDs,
     operator IDs, and the number of kills for each entry. The number of matches is specified by 
     the user, and the function randomly generates additional data based on defined distributions 
     and parameters.
+
+    After generation, the matchs are shuffled. 
 
     Parameters:
     -----------
@@ -132,6 +134,6 @@ def generate_matchs(n_matchs:int) -> pd.DataFrame:
         'match_id': match_ids,
         'operator_id': operator_ids,
         'nb_kills': nb_kills
-    })
+    }).sample(frac=1).reset_index(drop=True)
 
     return matchs_df
