@@ -2,3 +2,15 @@
 !/logs/r6-matches.log
 
 __pycache__
+
+# venv files
+bin/
+etc/
+include/
+lib/
+lib64
+pyvenv.cfg
+share/
+
+# jupyter checkpoints
+.ipynb_checkpoints/

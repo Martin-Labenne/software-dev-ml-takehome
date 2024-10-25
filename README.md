@@ -1,19 +1,9 @@
-# Title
+# Software Dev ML - Takehome - R6-siege
 
-## Conda Env
-In order to run this project, you need to install conda
-### Create the Env
+## setup project
+
 ```bash
-conda env create -f environment.yml
+python3 -m venv .
+source bin/activate
+pip install -r requierement.txt
 ```
-
-### Update the Env
-```bash
-conda env update -f environment.yml
-```
-
-### Activate the Env 
-```bash
-conda activate r6-logs
-``` 
-
