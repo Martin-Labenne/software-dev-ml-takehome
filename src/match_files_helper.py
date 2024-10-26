@@ -2,23 +2,14 @@ from uuid import uuid4
 import numpy as np
 import pandas as pd
 
-from typing import Union, IO
+import polars as pl
+from tempfile import NamedTemporaryFile
+
+from typing import Union, IO, Generator
 
 # Define the types for path_or_buf
 FilePath = Union[str, bytes]  # Defines FilePath as either a string or bytes
 WriteBuffer = IO  # IO is a generic type for file-like objects
-
-def load_matchs(
-    path_or_buf: FilePath | WriteBuffer[bytes] | WriteBuffer[str],
-    chunksize: None | int = None
-) -> pd.DataFrame | pd.io.parsers.readers.TextFileReader:
-    df = pd.read_csv(
-        path_or_buf, 
-        header=None, 
-        chunksize=chunksize,
-        names=['player_id', 'match_id', 'operator_id', 'nb_kills']
-    )
-    return df
 
     
 def store_matchs(
@@ -28,7 +19,58 @@ def store_matchs(
     matchs_df.to_csv(path_or_buf, index=False, header=False)
 
 
-def generate_matchs(n_matchs:int) -> pd.DataFrame: 
+def _pl_scan_csv(
+    path_or_buf: FilePath | WriteBuffer[bytes] | WriteBuffer[str], 
+    **kwargs
+) -> pl.LazyFrame: 
+
+    return pl.scan_csv(
+        path_or_buf, 
+        has_header=False,
+        new_columns=['player_id', 'match_id', 'operator_id', 'nb_kills'],
+        schema_overrides=[pl.String, pl.String, pl.Categorical, pl.UInt8],
+        **kwargs 
+    )
+
+def _scan_matches_iter_chunks(
+    path_or_buf: FilePath | WriteBuffer[bytes] | WriteBuffer[str], 
+    chunksize: int
+) -> Generator[pl.LazyFrame, None, None] :
+    if chunksize < 1:
+        raise ValueError("Chunk size must be a positive integer greater than zero.") 
+
+    do_continue = True
+    chunk_nb = 0
+    while do_continue: 
+        try:
+            yield _pl_scan_csv(
+                path_or_buf,
+                skip_rows=chunk_nb*chunksize,
+                n_rows=chunksize
+            )
+            chunk_nb += 1
+        except pl.exceptions.NoDataError: 
+            do_continue = False
+
+def scan_matches(
+    path_or_buf: FilePath | WriteBuffer[bytes] | WriteBuffer[str]
+    , chunksize: int = None
+) -> pl.LazyFrame | Generator[pl.LazyFrame, None, None]: 
+    if chunksize is None: 
+        return _pl_scan_csv(path_or_buf)
+    else: 
+        return _scan_matches_iter_chunks(path_or_buf, chunksize)
+
+
+def store_tempfile(df:pl.DataFrame) -> str: 
+    with NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as temp_file:
+        temp_file_path = temp_file.name
+        df.write_csv(file=temp_file_path, include_header=True)
+    
+    return temp_file_path
+
+
+def generate_matchs(n_matchs:int) -> pl.DataFrame: 
     """
     Generate a DataFrame containing simulated match data.
 
@@ -48,8 +90,8 @@ def generate_matchs(n_matchs:int) -> pd.DataFrame:
 
     Returns:
     --------
-    pd.DataFrame
-        A pandas DataFrame containing the following columns:
+    pl.DataFrame
+        A polars DataFrame containing the following columns:
         - 'player_id': A unique identifier for each player involved in the matches.
         - 'match_id': A unique identifier for each match played.
         - 'operator_id': The operator chosen by the player during the match.
@@ -76,7 +118,7 @@ def generate_matchs(n_matchs:int) -> pd.DataFrame:
     >>> print(df.head())
     """
     if n_matchs <= 0: 
-        return pd.DataFrame({}, columns=['player_id', 'match_id', 'operator_id', 'nb_kills']) 
+        return pl.DataFrame({'player_id': [], 'match_id': [], 'operator_id': [], 'nb_kills': []}) 
     
     nb_players_per_match = 10
     nb_players_ratio = 0.1  # 100/1000
@@ -91,7 +133,7 @@ def generate_matchs(n_matchs:int) -> pd.DataFrame:
     operators = np.array([14, 24, 30, 46, 64, 72, 73, 84, 100, 107, 109, 112, 130, 132, 173, 193, 194, 211, 230, 233, 237, 241, 245, 253])
 
     avg_nb_row_per_match = 55.833
-    std_nb_row_per_match = 9.328189052543907
+    std_nb_row_per_match = 9.332856648058687
 
     match_nb_of_rows_all = np.clip(
         np.random.normal(avg_nb_row_per_match, std_nb_row_per_match, size=n_matchs), 
@@ -109,13 +151,17 @@ def generate_matchs(n_matchs:int) -> pd.DataFrame:
     current_idx = 0
     
     for i, match_id in enumerate(matchs): 
-
         match_nb_of_rows = match_nb_of_rows_all[i]
 
-        # matchs: 1000
-        # players: 100
-        # match = 10 => 100 -> 109 (out of bounce) => 0 -> 9 = (i%10)*10 -> (i%10) + 1 * 10
-        match_players = players[(i%10)*10: ((i%10) + 1) * 10]
+        # Calculate the start index using modulo to wrap around
+        start_idx = (i * 10) % nb_players
+        end_idx = start_idx + 10
+
+        # If the end index exceeds nb_players, wrap around to the beginning
+        if end_idx > nb_players:
+            match_players = players[start_idx:] + players[:end_idx % nb_players]
+        else:
+            match_players = players[start_idx:end_idx]
 
         sequence_players = np.random.choice(match_players, size=match_nb_of_rows, replace=True) 
         
@@ -129,11 +175,11 @@ def generate_matchs(n_matchs:int) -> pd.DataFrame:
 
         current_idx += match_nb_of_rows
 
-    matchs_df = pd.DataFrame({
+    matchs_df = pl.DataFrame({
         'player_id': player_ids,
         'match_id': match_ids,
         'operator_id': operator_ids,
         'nb_kills': nb_kills
-    }).sample(frac=1).reset_index(drop=True)
+    }).sample(fraction=1, shuffle=True)
 
     return matchs_df

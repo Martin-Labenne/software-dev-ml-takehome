@@ -3,4 +3,3 @@ numpy
 pandas
 matplotlib
 polars-u64-idx
-altair[all]
