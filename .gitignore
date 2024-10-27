@@ -1,7 +1,10 @@
-/logs/ 
-!/logs/r6-matches.log
+data/daily/
+data/logs/*.log
+!data/logs/r6-matches.log
 
 __pycache__
+.ipynb_checkpoints/
+
 
 # venv files
 bin/
@@ -12,5 +15,3 @@ lib64
 pyvenv.cfg
 share/
 
-# jupyter checkpoints
-.ipynb_checkpoints/
