@@ -70,6 +70,5 @@ def merge_results_match_top_10(df_list: list[pl.LazyFrame]) -> pl.LazyFrame:
             'nb_kills', 
             descending=True
         )
-        .group_by('match_id')
         .head(10)
     )

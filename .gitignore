@@ -1,4 +1,6 @@
 data/daily/
+data/rolling_seven_days/
+
 data/logs/*.log
 !data/logs/r6-matches.log
 

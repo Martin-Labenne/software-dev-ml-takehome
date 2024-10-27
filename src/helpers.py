@@ -68,19 +68,25 @@ def store_tempfile(df:pl.DataFrame) -> str:
     return temp_file_path
 
 def store_format_operator_top_100(path: Path, df: pl.DataFrame): 
-    preformat = df.group_by('operator_id').agg([
+    if not path.parent.exists(): 
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+    pre_format = df.group_by('operator_id').agg([
         pl.col('match_id'), 
         pl.col('nb_kills') 
     ])
 
     with path.open(mode='a') as file: 
-        for operator_id, match_id, nb_kills in preformat.iter_rows():
+        for operator_id, match_id, nb_kills in pre_format.iter_rows():
             match_kills_pairs = list(zip(match_id, nb_kills))
             match_kills_strings = [ f'{match}:{kills}' for match, kills in match_kills_pairs ]
 
             file.write(f'{operator_id}|{','.join(match_kills_strings)}\n')
 
 def store_format_match_top_10(path: Path, df: pl.DataFrame): 
+    if not path.parent.exists(): 
+        path.parent.mkdir(parents=True, exist_ok=True)
+
     with path.open(mode='a') as file: 
         for match_id, nb_kills in df.iter_rows():
             match_kills_string = f'{match_id}:{nb_kills}\n'
@@ -88,7 +94,7 @@ def store_format_match_top_10(path: Path, df: pl.DataFrame):
             file.write(match_kills_string)
 
 
-def get_last_seven_files(dir_path): 
+def get_last_seven_files(dir_path: Path): 
     files = list(dir_path.glob('*')) 
     files.sort()
     
