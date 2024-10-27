@@ -1,7 +1,10 @@
 import polars as pl
+import re
 from tempfile import NamedTemporaryFile
 from pathlib import Path
 from typing import Union, IO, Generator
+
+from src.constants import OPERATORS, R6_MATCHES_STATS
 
 FilePath = Union[str, bytes] 
     
@@ -17,18 +20,44 @@ def store_daily_result(
 ) -> None : 
     df.write_csv(file=path_or_buf, include_header=True)
 
-def _pl_scan_csv(
+
+
+def _lazy_validation(df: pl.LazyFrame) -> pl.LazyFrame:
+    uuid_v4_pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'
+    return df.filter(
+        (pl.col('player_id').is_not_null()) &
+        (pl.col('match_id').is_not_null()) &
+        (pl.col('operator_id').is_not_null()) &
+        (pl.col('nb_kills').is_not_null()) &
+        (pl.col('player_id').str.count_matches(uuid_v4_pattern) == 1) &
+        (pl.col('match_id').str.count_matches(uuid_v4_pattern) == 1) &
+        (pl.col('operator_id').is_in(OPERATORS)) &
+        (pl.col('nb_kills').is_between(R6_MATCHES_STATS['MIN_NB_KILLS'], R6_MATCHES_STATS['MAX_NB_KILLS']))
+    )
+
+
+
+
+
+
+
+
+def _scan_csv(
     path_or_buf: FilePath | IO[bytes] | IO[str], 
     **kwargs
 ) -> pl.LazyFrame: 
 
-    return pl.scan_csv(
-        path_or_buf, 
-        has_header=False,
-        new_columns=['player_id', 'match_id', 'operator_id', 'nb_kills'],
-        schema_overrides=[pl.String, pl.String, pl.Categorical, pl.UInt8],
-        **kwargs 
-    )
+    return _lazy_validation(
+        pl.scan_csv(
+            path_or_buf, 
+            has_header=False,
+            new_columns=['player_id', 'match_id', 'operator_id', 'nb_kills'],
+            schema_overrides=[pl.String, pl.String, pl.UInt8, pl.UInt8],
+            truncate_ragged_lines=True,
+            ignore_errors=True,
+            **kwargs 
+        )
+    ) 
 
 def _scan_matches_iter_chunks(
     path_or_buf: FilePath | IO[bytes] | IO[str], 
@@ -41,7 +70,7 @@ def _scan_matches_iter_chunks(
     chunk_nb = 0
     while do_continue: 
         try:
-            yield _pl_scan_csv(
+            yield _scan_csv(
                 path_or_buf,
                 skip_rows=chunk_nb*chunksize,
                 n_rows=chunksize
@@ -55,7 +84,7 @@ def scan_matches(
     , chunksize: int = None
 ) -> pl.LazyFrame | Generator[pl.LazyFrame, None, None]: 
     if chunksize is None: 
-        return _pl_scan_csv(path_or_buf)
+        return _scan_csv(path_or_buf)
     else: 
         return _scan_matches_iter_chunks(path_or_buf, chunksize)
 

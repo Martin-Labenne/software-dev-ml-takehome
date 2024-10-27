@@ -45,7 +45,7 @@ def generate_corrupted_rows(df: pl.DataFrame, corruption_ratio: float = 0.001) -
     num_corrupted = int(num_rows * corruption_ratio)
     
     corrupted_indices = np.random.choice(num_rows, num_corrupted, replace=False)
-    corruption_types = np.random.randint(1, 12, size=num_corrupted)
+    corruption_types = np.random.randint(1, 10, size=num_corrupted)
 
     corruped_df = df
     
@@ -58,22 +58,18 @@ def generate_corrupted_rows(df: pl.DataFrame, corruption_ratio: float = 0.001) -
             case 2:  
                 corruped_df[idx, 'match_id'] = "not-a-uuid"
             case 3:  
-                corruped_df[idx, 'operator_id'] = "bad_op_id"  
+                corruped_df[idx, 'operator_id'] = 0
             case 4:  
                 corruped_df[idx, 'nb_kills'] = -1  
             case 5: 
-                corruped_df[idx, 'nb_kills'] = 2000
+                corruped_df[idx, 'nb_kills'] = 200
             case 6: 
-                corruped_df[idx, 'nb_kills'] = 2.5
-            case 7: 
-                corruped_df[idx, 'nb_kills'] = 'kills'
-            case 8: 
                 corruped_df[idx, 'player_id'] = None
-            case 9: 
+            case 7: 
                 corruped_df[idx, 'match_id'] = None
-            case 10: 
+            case 8: 
                 corruped_df[idx, 'operator_id'] = None
-            case 11: 
+            case 9: 
                 corruped_df[idx, 'nb_kills'] = None
             
     return corruped_df
@@ -145,10 +141,10 @@ def generate_matches(n_matches:int=1000, corruption_ratio: float = 0.001) -> pl.
 
     total_rows = match_nb_of_rows_all.sum()
     
-    match_ids = np.empty(total_rows, dtype='U36')  # For UUID match_ids
+    match_ids = np.empty(total_rows, dtype='U36') # For UUID match_ids
     player_ids = np.empty(total_rows, dtype='U36')  # For UUID player_ids
-    operator_ids = np.empty(total_rows, dtype=np.int32)
-    nb_kills = np.empty(total_rows, dtype=np.int32)
+    operator_ids = np.empty(total_rows, dtype=np.uint8)
+    nb_kills = np.empty(total_rows, dtype=np.uint8)
 
     def _get_match_players(i): 
         # Calculate the start index using modulo to wrap around
@@ -175,7 +171,7 @@ def generate_matches(n_matches:int=1000, corruption_ratio: float = 0.001) -> pl.
         sequence_operators = np.random.choice(operators, size=match_nb_of_rows, replace=True)
         sequence_nb_kills = np.random.randint(0, 5, size=match_nb_of_rows)
 
-        match_ids[current_idx:current_idx + match_nb_of_rows] = match_id
+        match_ids[current_idx:current_idx + match_nb_of_rows] = np.repeat(match_id, match_nb_of_rows)
         player_ids[current_idx:current_idx + match_nb_of_rows] = sequence_players
         operator_ids[current_idx:current_idx + match_nb_of_rows] = sequence_operators
         nb_kills[current_idx:current_idx + match_nb_of_rows] = sequence_nb_kills
