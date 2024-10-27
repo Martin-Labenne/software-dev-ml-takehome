@@ -21,7 +21,21 @@ def get_last_seven_files(dir_path: Path):
     
     return last_seven_files
 
-def store_format_operator_top_100(path: Path, df: pl.DataFrame): 
+def store_format_operator_top_100(path: Path, df: pl.DataFrame) -> None: 
+    """
+    Store formatted top 100 kills per operator in a file.
+
+    Groups by operator and formats matches and kills as strings, saving
+    each operator's data on a new line.
+
+    Parameters:
+    -----------
+    path : Path
+        File path to save the formatted data.
+    df : pl.DataFrame
+        DataFrame containing 'operator_id', 'match_id', and 'nb_kills'.
+
+    """
     if not path.parent.exists(): 
         path.parent.mkdir(parents=True, exist_ok=True)
         
@@ -37,7 +51,20 @@ def store_format_operator_top_100(path: Path, df: pl.DataFrame):
 
             file.write(f'{operator_id}|{','.join(match_kills_strings)}\n')
 
-def store_format_match_top_10(path: Path, df: pl.DataFrame): 
+def store_format_match_top_10(path: Path, df: pl.DataFrame) -> None:
+    """
+    Store formatted top 10 kills per match in a file.
+
+    Writes each match and associated kills in a formated on separate lines.
+
+    Parameters:
+    -----------
+    path : Path
+        File path to save the formatted data.
+    df : pl.DataFrame
+        DataFrame containing 'match_id' and 'nb_kills'.
+    """
+
     if not path.parent.exists(): 
         path.parent.mkdir(parents=True, exist_ok=True)
 

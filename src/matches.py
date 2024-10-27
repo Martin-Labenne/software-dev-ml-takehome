@@ -7,6 +7,13 @@ from pathlib import Path
 from src.constants import OPERATORS, R6_MATCHES_STATS
 
 def _lazy_validation(df: pl.LazyFrame) -> pl.LazyFrame:
+    """
+    Apply validation filters on a LazyFrame for match data.
+
+    Ensures non-null UUID fields, valid operator IDs, and kill count within
+    specified range.
+    """
+
     uuid_v4_pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'
     return df.filter(
         (pl.col('player_id').is_not_null()) &
@@ -23,6 +30,10 @@ def _scan_csv(
     path: Path, 
     **kwargs
 ) -> pl.LazyFrame: 
+    """
+    Scan and validate a CSV file as a LazyFrame.
+    Scans CSV with specified schema, applies lazy validation, and handles ragged lines.
+    """
 
     return _lazy_validation(
         pl.scan_csv(
@@ -40,6 +51,10 @@ def _scan_matches_iter_chunks(
     path: Path, 
     chunksize: int
 ) -> Generator[pl.LazyFrame, None, None] :
+    """
+    Generator of validated LazyFrame chunks. 
+    For each chunk, Scan and validate a CSV file as a LazyFrame.
+    """
     if chunksize < 1:
         raise ValueError("Chunk size must be a positive integer greater than zero.") 
 
@@ -60,6 +75,22 @@ def scan_matches(
     path: Path,
     chunksize: int = None
 ) -> pl.LazyFrame | Generator[pl.LazyFrame, None, None]: 
+    """
+    Load matches data from CSV as LazyFrame or in chunks.
+
+    Parameters:
+    -----------
+    path : Path
+        Path to the CSV file.
+    chunksize : int, optional
+        Number of rows per chunk. Returns generator if provided, else LazyFrame.
+
+    Returns:
+    --------
+    pl.LazyFrame | Generator[pl.LazyFrame, None, None]
+        LazyFrame for entire data or generator of chunks.
+    """
+
     if chunksize is None: 
         return _scan_csv(path)
     else: 
@@ -74,6 +105,24 @@ def store_matches(
     df.write_csv(file=path, include_header=False)
 
 def _generate_corrupted_rows(df: pl.DataFrame, corruption_ratio: float = 0.001) -> pl.DataFrame: 
+    """
+    Introduce data corruption into a DataFrame.
+
+    Randomly modifies a proportion of rows to include invalid or None values 
+    across columns like 'player_id', 'match_id', 'operator_id', and 'nb_kills'.
+
+    Parameters:
+    -----------
+    df : pl.DataFrame
+        The DataFrame to corrupt.
+    corruption_ratio : float, optional
+        Fraction of rows to corrupt (default is 0.001).
+
+    Returns:
+    --------
+    pl.DataFrame
+        DataFrame with the specified proportion of corrupted rows.
+    """
     if corruption_ratio == 0: 
         return df
     
@@ -112,51 +161,30 @@ def _generate_corrupted_rows(df: pl.DataFrame, corruption_ratio: float = 0.001) 
 
 def generate_matches(n_matches:int=1000, corruption_ratio: float = 0.001) -> pl.DataFrame: 
     """
-    Generate a DataFrame containing simulated match data.
+    Generate a DataFrame of simulated match data.
 
-    This function creates a DataFrame representing match records, including player IDs, match IDs,
-    operator IDs, and the number of kills for each entry. The number of matches is specified by 
-    the user, and the function randomly generates additional data based on defined distributions 
-    and parameters.
-
-    After generation, the matches are shuffled. 
+    Creates match records with UUIDs for players and matches, randomly assigned operator IDs, 
+    and number of kills. Applies data corruption based on a specified ratio.
 
     Parameters:
     -----------
-    n_matches : int
-        The number of matches to simulate. Each match will have a varying number of rows 
-        (gameplay entries) based on a normal distribution, constrained within specified 
-        boundaries.
+    n_matches : int, optional
+        Number of matches to simulate (default is 1000).
+    corruption_ratio : float, optional
+        Fraction of rows to corrupt in the dataset (default is 0.001).
 
     Returns:
     --------
     pl.DataFrame
-        A polars DataFrame containing the following columns:
-        - 'player_id': A unique identifier for each player involved in the matches.
-        - 'match_id': A unique identifier for each match played.
-        - 'operator_id': The operator chosen by the player during the match.
-        - 'nb_kills': The number of kills achieved by the player in that match.
+        DataFrame with columns: 'player_id', 'match_id', 'operator_id', and 'nb_kills'.
 
     Notes:
     ------
-    - If n_matches is less than or equal to zero, an empty DataFrame is returned with the defined 
-      column names.
-    - The number of players available for selection is calculated as a ratio of the number of matches,
-      with a minimum of 10 players.
-    - The function generates match records with an average number of rows per match set at 55.833,
-      with a standard deviation of approximately 9.33. The number of rows per match is clipped 
-      between a minimum of 25 and a maximum of 82 to ensure reasonable gameplay scenarios.
-    - Player IDs are generated as UUIDs, while operator IDs are randomly selected from a predefined
-      list of operator values.
-    - **Warning**: Generating a very high number of matches (e.g., 1,000,000) may lead to high memory usage,
-      potentially causing your system to freeze, especially on machines with limited RAM (e.g., 8 GB). 
-      It is recommended to test with smaller values first and considere batch generation.
-
-    Example:
-    ---------
-    >>> df = generate_matches(1000)
-    >>> print(df.head())
+    Generating a very high number of matches (e.g., 1,000,000) may lead to high memory usage,
+    potentially causing your system to freeze, especially on machines with limited RAM (e.g., 8 GB). 
+    It is recommended to test with smaller values first and considere batch generation.
     """
+
     if n_matches <= 0: 
         return pl.DataFrame({'player_id': [], 'match_id': [], 'operator_id': [], 'nb_kills': []}) 
     
@@ -183,7 +211,7 @@ def generate_matches(n_matches:int=1000, corruption_ratio: float = 0.001) -> pl.
     nb_kills = np.empty(total_rows, dtype=np.uint8)
 
     def _get_match_players(i): 
-        # Calculate the start index using modulo to wrap around
+        """Get a list of players for a specific match based on its index."""
         start_idx = (i * 10) % nb_players
         end_idx = start_idx + 10
 

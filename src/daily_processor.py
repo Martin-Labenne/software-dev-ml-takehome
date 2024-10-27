@@ -1,21 +1,36 @@
 import polars as pl
 from pathlib import Path
+from typing import Callable, Dict
 
 from src.queries import partition_by_match_prefix, operator_top_100, match_top_10, merge_results_operator_top_100, merge_results_match_top_10
 from src.misc import store_tempfile
 from src.matches import scan_matches
 from src.daily_results import store_daily_result
 
-def partition_log_file(log_path, chunksize=10**7): 
+def partition_log_file(log_path: Path, chunksize:int =10**7) -> Dict[str, str] : 
+    """
+    Partition a large log file into temporary files based on the match ID prefix. Each partition corresponds to
+    a unique match prefix to facilitate efficient, prefix-based processing of the data.
 
+    Parameters:
+    -----------
+    log_path : Path
+        Path to the main log file that will be partitioned.
+    chunksize : int, optional
+        Number of rows per chunk when reading the log file in batches. Default is 10 million rows.
+
+    Returns:
+    --------
+    Dict[str, str]
+        Dictionary mapping each unique match prefix to the path of its corresponding temporary file.
+    """
     chunked_partition_map = {}
     partition_map = {}
 
     for lazy_chunk in scan_matches( log_path, chunksize ):
-        # lazy load with column creation
+        
         partitionned_chunk = partition_by_match_prefix(lazy_chunk).collect()
 
-        # partitions are stored in temp file
         for match_prefix, player_id, match_ids, operator_id, nb_kills in partitionned_chunk.iter_rows(): 
             if not (match_prefix in chunked_partition_map) : 
                 chunked_partition_map[match_prefix] = []
@@ -40,7 +55,8 @@ def partition_log_file(log_path, chunksize=10**7):
 
     return partition_map
 
-def _partition_apply(partition_map, function): 
+def _partition_apply(partition_map: Dict[str, str], function: Callable) -> Dict[str, pl.LazyFrame]: 
+    """ Apply a function to each partition in the partition map. """
     lazy_map = { key: '' for key in partition_map.keys() }
 
     for idx, partition_path in partition_map.items(): 
@@ -52,8 +68,7 @@ def _partition_apply(partition_map, function):
     return lazy_map
 
 
-def compute_daily_operator_top_100(partition_map):
-
+def compute_daily_operator_top_100(partition_map: Dict[str, str]) -> pl.DataFrame:
     lazy_map = _partition_apply(partition_map, operator_top_100)
 
     lazy_result = merge_results_operator_top_100(
@@ -63,8 +78,7 @@ def compute_daily_operator_top_100(partition_map):
     return lazy_result.collect()
 
 
-def compute_daily_match_top_10(partition_map):
-
+def compute_daily_match_top_10(partition_map: Dict[str, str]) -> pl.DataFrame:
     lazy_map = _partition_apply(partition_map, match_top_10)
 
     lazy_result = merge_results_match_top_10(
@@ -74,7 +88,7 @@ def compute_daily_match_top_10(partition_map):
     return lazy_result.collect()
 
 
-def store_daily_operator_top_100(df, str_date):
+def store_daily_operator_top_100(df: pl.DataFrame, str_date: str):
     path = Path(
         f'{Path(__file__).parent}/../data/daily/operator_top_100/{str_date}.csv'
     )
@@ -85,7 +99,7 @@ def store_daily_operator_top_100(df, str_date):
     store_daily_result(path, df)
 
 
-def store_daily_match_top_10(df, str_date): 
+def store_daily_match_top_10(df: pl.DataFrame, str_date: str): 
     path = Path(
         f'{Path(__file__).parent}/../data/daily/match_top_10/{str_date}.csv'
     )

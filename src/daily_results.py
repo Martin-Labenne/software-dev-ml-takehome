@@ -15,7 +15,15 @@ def store_daily_result(
     df.write_csv(file=path, include_header=True)
 
 
-def generate_dummy_daily_results():
+def generate_dummy_daily_results() -> None:
+    """
+    Generate and store dummy daily results for operator top 100 and match top 10.
+
+    This function generates sample daily reports for the top 100 average kills by operator
+    and the top 10 matches with the highest kills. For each day, new UUIDs are assigned
+    to match IDs to anonymize data before storage.
+
+    """
     r6_logs_path = Path(R6_MATCHES_LOG_LOCATION) 
     lazy_df = scan_matches(r6_logs_path)
     top_100_avg_kills_dummy = operator_top_100(lazy_df).collect()
