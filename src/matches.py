@@ -1,46 +1,82 @@
-from pathlib import Path
-from uuid import uuid4
-import polars as pl
 import numpy as np
+import polars as pl
+from uuid import uuid4
+from typing import Generator, IO
+from pathlib import Path
 
-from src.constants import OPERATORS, R6_MATCHES_LOG_LOCATION, PREVIOUS_DAYS, R6_MATCHES_STATS
-from src.helpers import scan_matches
-from src.queries import operator_top_100, match_top_10
+from src.constants import OPERATORS, R6_MATCHES_STATS
 
-def get_today(): 
-    return '20241027'
+def _lazy_validation(df: pl.LazyFrame) -> pl.LazyFrame:
+    uuid_v4_pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$'
+    return df.filter(
+        (pl.col('player_id').is_not_null()) &
+        (pl.col('match_id').is_not_null()) &
+        (pl.col('operator_id').is_not_null()) &
+        (pl.col('nb_kills').is_not_null()) &
+        (pl.col('player_id').str.count_matches(uuid_v4_pattern) == 1) &
+        (pl.col('match_id').str.count_matches(uuid_v4_pattern) == 1) &
+        (pl.col('operator_id').is_in(OPERATORS)) &
+        (pl.col('nb_kills').is_between(R6_MATCHES_STATS['MIN_NB_KILLS'], R6_MATCHES_STATS['MAX_NB_KILLS']))
+    )
 
-def generate_dummy_daily_results():
-    r6_logs_path = Path(R6_MATCHES_LOG_LOCATION) 
-    lazy_df = scan_matches(r6_logs_path)
-    top_100_avg_kills_dummy = operator_top_100(lazy_df).collect()
-    top_10_matches_dummy = match_top_10(lazy_df).collect()
+def _scan_csv(
+    path: Path, 
+    **kwargs
+) -> pl.LazyFrame: 
 
-    op_100_folder = 'data/daily/operator_top_100/'
-    match_10_folder = 'data/daily/match_top_10/'
+    return _lazy_validation(
+        pl.scan_csv(
+            path, 
+            has_header=False,
+            new_columns=['player_id', 'match_id', 'operator_id', 'nb_kills'],
+            schema_overrides=[pl.String, pl.String, pl.UInt8, pl.UInt8],
+            truncate_ragged_lines=True,
+            ignore_errors=True,
+            **kwargs 
+        )
+    ) 
 
-    def _replace_match_id(df): 
-        match_ids = df["match_id"].unique().to_list()
-        mapping = { match_id: str(uuid4()) for match_id in match_ids }
-        return (
-            df.with_columns(match_id=pl.col("match_id").replace(mapping))
-        ) 
+def _scan_matches_iter_chunks(
+    path: Path, 
+    chunksize: int
+) -> Generator[pl.LazyFrame, None, None] :
+    if chunksize < 1:
+        raise ValueError("Chunk size must be a positive integer greater than zero.") 
 
-    def _store_sub_result(path, df): 
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            df.write_csv(file=path, include_header=True)
+    do_continue = True
+    chunk_nb = 0
+    while do_continue: 
+        try:
+            yield _scan_csv(
+                path,
+                skip_rows=chunk_nb*chunksize,
+                n_rows=chunksize
+            )
+            chunk_nb += 1
+        except pl.exceptions.NoDataError: 
+            do_continue = False
 
-    for day in PREVIOUS_DAYS: 
-        op_path = Path(f'{op_100_folder}{day}.csv')
-        match_path = Path(f'{match_10_folder}{day}.csv')
+def scan_matches(
+    path: Path,
+    chunksize: int = None
+) -> pl.LazyFrame | Generator[pl.LazyFrame, None, None]: 
+    if chunksize is None: 
+        return _scan_csv(path)
+    else: 
+        return _scan_matches_iter_chunks(path, chunksize)
+    
+def store_matches(
+    path: Path | IO, 
+    df: pl.DataFrame
+) -> None : 
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+    df.write_csv(file=path, include_header=False)
 
-        _store_sub_result(op_path, _replace_match_id(top_100_avg_kills_dummy))
-        _store_sub_result(match_path, _replace_match_id(top_10_matches_dummy))
-
-
-
-def generate_corrupted_rows(df: pl.DataFrame, corruption_ratio: float = 0.001) -> pl.DataFrame: 
+def _generate_corrupted_rows(df: pl.DataFrame, corruption_ratio: float = 0.001) -> pl.DataFrame: 
+    if corruption_ratio == 0: 
+        return df
+    
     num_rows = df.shape[0]
     num_corrupted = int(num_rows * corruption_ratio)
     
@@ -185,6 +221,6 @@ def generate_matches(n_matches:int=1000, corruption_ratio: float = 0.001) -> pl.
         'nb_kills': nb_kills
     }).sample(fraction=1, shuffle=True)
 
-    corruped_matches_df = generate_corrupted_rows(matches_df, corruption_ratio)
+    corruped_matches_df = _generate_corrupted_rows(matches_df, corruption_ratio)
 
     return corruped_matches_df
