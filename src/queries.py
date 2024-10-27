@@ -28,3 +28,20 @@ def partition_by_match_prefix(df: pl.LazyFrame) -> pl.LazyFrame:
             for col_name in ['player_id', 'match_id', 'operator_id', 'nb_kills']
         ])
     )
+
+def top_10_matches_kills_by_player(df: pl.LazyFrame) -> pl.LazyFrame : 
+    return (
+        df.group_by('match_id', 'player_id')
+        .agg(
+            pl.col('nb_kills')
+            .sum()
+        ).group_by('match_id')
+        .agg(
+            pl.col('nb_kills')
+            .max()
+        )
+        .sort(
+            'nb_kills', 
+            descending=True
+        ).head(10)
+    )
