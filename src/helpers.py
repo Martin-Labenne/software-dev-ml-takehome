@@ -1,6 +1,6 @@
 import polars as pl
 from tempfile import NamedTemporaryFile
-
+from pathlib import Path
 from typing import Union, IO, Generator
 
 FilePath = Union[str, bytes] 
@@ -67,3 +67,31 @@ def store_tempfile(df:pl.DataFrame) -> str:
     
     return temp_file_path
 
+def store_format_operator_top_100(path: Path, df: pl.DataFrame): 
+    preformat = df.group_by('operator_id').agg([
+        pl.col('match_id'), 
+        pl.col('nb_kills') 
+    ])
+
+    with path.open(mode='a') as file: 
+        for operator_id, match_id, nb_kills in preformat.iter_rows():
+            match_kills_pairs = list(zip(match_id, nb_kills))
+            match_kills_strings = [ f'{match}:{kills}' for match, kills in match_kills_pairs ]
+
+            file.write(f'{operator_id}|{','.join(match_kills_strings)}\n')
+
+def store_format_match_top_10(path: Path, df: pl.DataFrame): 
+    with path.open(mode='a') as file: 
+        for match_id, nb_kills in df.iter_rows():
+            match_kills_string = f'{match_id}:{nb_kills}\n'
+
+            file.write(match_kills_string)
+
+
+def get_last_seven_files(dir_path): 
+    files = list(dir_path.glob('*')) 
+    files.sort()
+    
+    last_seven_files = files[-7:]
+    
+    return last_seven_files

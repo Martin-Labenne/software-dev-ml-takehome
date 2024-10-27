@@ -73,7 +73,7 @@ def compute_daily_match_top_10(partition_map):
 
 def store_daily_operator_top_100(df, str_date):
     path = Path(
-        f'{Path(__file__).parent}/../data/daily/operator_top_100/{str_date}'
+        f'{Path(__file__).parent}/../data/daily/operator_top_100/{str_date}.csv'
     )
     operator_top_100_dir = path.parent
     if not operator_top_100_dir.exists(): 
@@ -84,7 +84,7 @@ def store_daily_operator_top_100(df, str_date):
 
 def store_daily_match_top_10(df, str_date): 
     path = Path(
-        f'{Path(__file__).parent}/../data/daily/match_top_10/{str_date}'
+        f'{Path(__file__).parent}/../data/daily/match_top_10/{str_date}.csv'
     )
     match_top_10_dir = path.parent
     if not match_top_10_dir.exists(): 
