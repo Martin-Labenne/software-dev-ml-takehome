@@ -1,6 +1,6 @@
 import polars as pl 
 
-def top_100_avg_kills_per_operator_per_match(df: pl.LazyFrame) -> pl.LazyFrame: 
+def operator_top_100(df: pl.LazyFrame) -> pl.LazyFrame: 
     return (
         df.group_by('match_id', 'operator_id')
         .agg(
@@ -14,6 +14,20 @@ def top_100_avg_kills_per_operator_per_match(df: pl.LazyFrame) -> pl.LazyFrame:
         .group_by('operator_id')
         .head(100)
     )
+
+def merge_results_operator_top_100(df_list: list[pl.LazyFrame]) -> pl.LazyFrame: 
+    return (
+            pl.concat(
+                df_list,
+                how='vertical'
+            )
+            .sort(
+                'nb_kills', 
+                descending=True
+            )
+            .group_by('operator_id')
+            .head(100)
+        )
 
 def partition_by_match_prefix(df: pl.LazyFrame) -> pl.LazyFrame: 
     return (
@@ -29,7 +43,7 @@ def partition_by_match_prefix(df: pl.LazyFrame) -> pl.LazyFrame:
         ])
     )
 
-def top_10_matches_kills_by_player(df: pl.LazyFrame) -> pl.LazyFrame : 
+def match_top_10(df: pl.LazyFrame) -> pl.LazyFrame : 
     return (
         df.group_by('match_id', 'player_id')
         .agg(
@@ -44,4 +58,18 @@ def top_10_matches_kills_by_player(df: pl.LazyFrame) -> pl.LazyFrame :
             'nb_kills', 
             descending=True
         ).head(10)
+    )
+
+def merge_results_match_top_10(df_list: list[pl.LazyFrame]) -> pl.LazyFrame:
+    return (
+        pl.concat(
+            df_list,
+            how='vertical'
+        )
+        .sort(
+            'nb_kills', 
+            descending=True
+        )
+        .group_by('match_id')
+        .head(10)
     )

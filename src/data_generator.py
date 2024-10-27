@@ -4,7 +4,7 @@ import polars as pl
 import numpy as np
 
 from src.match_files_helper import scan_matches
-from src.queries import top_100_avg_kills_per_operator_per_match, top_10_matches_kills_by_player
+from src.queries import operator_top_100, match_top_10
 
 def get_today(): 
     return '20241027'
@@ -12,8 +12,8 @@ def get_today():
 def generate_dummy_daily_results():
     r6_logs_path = Path('data/logs/r6-matches.log') 
     lazy_df = scan_matches(r6_logs_path)
-    top_100_avg_kills_dummy = top_100_avg_kills_per_operator_per_match(lazy_df).collect()
-    top_10_matchs_dummy = top_10_matches_kills_by_player(lazy_df).collect()
+    top_100_avg_kills_dummy = operator_top_100(lazy_df).collect()
+    top_10_matchs_dummy = match_top_10(lazy_df).collect()
 
     # today = '20241027'
     previous_days = ['20241026', '20241025', '20241024', '20241023', '20241022', '20241021', '20241020', '20241019', '20241018', '20241017', '20241018', '20241017']

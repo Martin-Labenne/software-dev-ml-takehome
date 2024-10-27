@@ -7,11 +7,15 @@ FilePath = Union[str, bytes]
     
 def store_matchs(
     path_or_buf: FilePath | IO[bytes] | IO[str], 
-    matchs_df: pl.DataFrame
+    df: pl.DataFrame
 ) -> None : 
-    matchs_df.write_csv(file=path_or_buf, include_header=False)
+    df.write_csv(file=path_or_buf, include_header=False)
     
-
+def store_daily_result(
+    path_or_buf: FilePath | IO[bytes] | IO[str], 
+    df: pl.DataFrame
+) -> None : 
+    df.write_csv(file=path_or_buf, include_header=True)
 
 def _pl_scan_csv(
     path_or_buf: FilePath | IO[bytes] | IO[str], 
