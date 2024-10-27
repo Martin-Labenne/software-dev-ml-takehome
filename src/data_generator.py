@@ -3,6 +3,7 @@ from uuid import uuid4
 import polars as pl
 import numpy as np
 
+from src.constants import OPERATORS, R6_MATCHES_LOG_LOCATION, PREVIOUS_DAYS, R6_MATCHES_STATS
 from src.helpers import scan_matches
 from src.queries import operator_top_100, match_top_10
 
@@ -10,13 +11,10 @@ def get_today():
     return '20241027'
 
 def generate_dummy_daily_results():
-    r6_logs_path = Path('data/logs/r6-matches.log') 
+    r6_logs_path = Path(R6_MATCHES_LOG_LOCATION) 
     lazy_df = scan_matches(r6_logs_path)
     top_100_avg_kills_dummy = operator_top_100(lazy_df).collect()
     top_10_matchs_dummy = match_top_10(lazy_df).collect()
-
-    # today = '20241027'
-    previous_days = ['20241026', '20241025', '20241024', '20241023', '20241022', '20241021', '20241020', '20241019', '20241018', '20241017', '20241018', '20241017']
 
     op_100_folder = 'data/daily/operator_top_100/'
     match_10_folder = 'data/daily/match_top_10/'
@@ -33,7 +31,7 @@ def generate_dummy_daily_results():
             path.parent.mkdir(parents=True, exist_ok=True)
             df.write_csv(file=path, include_header=True)
 
-    for day in previous_days: 
+    for day in PREVIOUS_DAYS: 
         op_path = Path(f'{op_100_folder}{day}.csv')
         match_path = Path(f'{match_10_folder}{day}.csv')
 
@@ -42,7 +40,7 @@ def generate_dummy_daily_results():
 
 
 
-def generate_matchs(n_matchs:int) -> pl.DataFrame: 
+def generate_matches(n_matchs:int) -> pl.DataFrame: 
     """
     Generate a DataFrame containing simulated match data.
 
@@ -96,21 +94,15 @@ def generate_matchs(n_matchs:int) -> pl.DataFrame:
     nb_players_ratio = 0.1  # 100/1000
     nb_players = max(nb_players_per_match, round(nb_players_ratio * n_matchs))
 
-    match_nb_of_rows_low_boundary = 25
-    match_nb_of_rows_high_boundary = 82
-
     players = [ str(uuid4()) for _ in range(nb_players) ] 
     matchs = [ str(uuid4()) for _ in range(n_matchs) ] 
 
-    operators = np.array([14, 24, 30, 46, 64, 72, 73, 84, 100, 107, 109, 112, 130, 132, 173, 193, 194, 211, 230, 233, 237, 241, 245, 253])
-
-    avg_nb_row_per_match = 55.833
-    std_nb_row_per_match = 9.332856648058687
+    operators = np.array(OPERATORS)
 
     match_nb_of_rows_all = np.clip(
-        np.random.normal(avg_nb_row_per_match, std_nb_row_per_match, size=n_matchs), 
-        match_nb_of_rows_low_boundary, 
-        match_nb_of_rows_high_boundary
+        np.random.normal(R6_MATCHES_STATS['AVG_NB_ROWS_PER_MATCH'], R6_MATCHES_STATS['STD_NB_ROWS_PER_MATCH'], size=n_matchs), 
+        R6_MATCHES_STATS['NB_ROWS_LOW_BOUNDARY'], 
+        R6_MATCHES_STATS['NB_ROWS_HIGH_BOUNDARY']
     ).astype(int)
 
     total_rows = match_nb_of_rows_all.sum()
@@ -120,11 +112,7 @@ def generate_matchs(n_matchs:int) -> pl.DataFrame:
     operator_ids = np.empty(total_rows, dtype=np.int32)
     nb_kills = np.empty(total_rows, dtype=np.int32)
 
-    current_idx = 0
-    
-    for i, match_id in enumerate(matchs): 
-        match_nb_of_rows = match_nb_of_rows_all[i]
-
+    def _get_match_players(i): 
         # Calculate the start index using modulo to wrap around
         start_idx = (i * 10) % nb_players
         end_idx = start_idx + 10
@@ -134,6 +122,15 @@ def generate_matchs(n_matchs:int) -> pl.DataFrame:
             match_players = players[start_idx:] + players[:end_idx % nb_players]
         else:
             match_players = players[start_idx:end_idx]
+
+        return match_players
+    
+
+    current_idx = 0
+    
+    for i, match_id in enumerate(matchs): 
+        match_nb_of_rows = match_nb_of_rows_all[i]
+        match_players = _get_match_players(i)
 
         sequence_players = np.random.choice(match_players, size=match_nb_of_rows, replace=True) 
         
