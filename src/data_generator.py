@@ -3,7 +3,7 @@ from uuid import uuid4
 import polars as pl
 import numpy as np
 
-from src.match_files_helper import scan_matches
+from helpers import scan_matches
 from src.queries import operator_top_100, match_top_10
 
 def get_today(): 
