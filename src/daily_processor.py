@@ -1,6 +1,7 @@
 from queries import partition_by_match_prefix, operator_top_100, match_top_10, merge_results_operator_top_100, merge_results_match_top_10
-from match_files_helper import scan_matches, store_tempfile
+from match_files_helper import scan_matches, store_tempfile, store_daily_result
 import polars as pl
+from pathlib import Path
 
 def partition_log_file(log_path, chunksize=10**7): 
 
@@ -68,5 +69,27 @@ def compute_daily_match_top_10(partition_map):
     )
 
     return lazy_result.collect()
+
+
+def store_daily_operator_top_100(df, str_date):
+    path = Path(
+        f'{Path(__file__).parent}/../data/daily/operator_top_100/{str_date}'
+    )
+    operator_top_100_dir = path.parent
+    if not operator_top_100_dir.exists(): 
+        operator_top_100_dir.mkdir(parents=True, exist_ok=True)
+
+    store_daily_result(path, df)
+
+
+def store_daily_match_top_10(df, str_date): 
+    path = Path(
+        f'{Path(__file__).parent}/../data/daily/match_top_10/{str_date}'
+    )
+    match_top_10_dir = path.parent
+    if not match_top_10_dir.exists(): 
+        match_top_10_dir.mkdir(parents=True, exist_ok=True)
+
+    store_daily_result(path, df)
 
 
