@@ -1,4 +1,4 @@
-R6_MATCHES_LOG_LOCATION = 'data/logs/r6-matches.log'
+R6_MATCHES_LOG_LOCATION = 'data/logs/matches.log'
 R6_MATCHES_STATS = {
     'AVG_NB_ROWS_PER_MATCH': 55.833,
     'STD_NB_ROWS_PER_MATCH': 9.333,

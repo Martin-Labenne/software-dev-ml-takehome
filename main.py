@@ -9,7 +9,7 @@ from src.queries import merge_results_operator_top_100, merge_results_match_top_
 from src.matches import generate_matches, store_matches, generate_millions_matchs
 from src.daily_results import generate_dummy_daily_results
 
-DEFAULT_LOG_PATH = Path('data/logs/r6-matches.log')
+DEFAULT_LOG_PATH = Path('data/logs/matches.log')
 DEFAULT_CHUNK_SIZE = 10**7
 RESULT_DIR = Path('data/rolling_seven_days/')
 DIR_DAILY_OPERATOR_TOP_100 = Path('data/daily/operator_top_100/')

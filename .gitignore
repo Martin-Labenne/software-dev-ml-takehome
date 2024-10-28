@@ -2,7 +2,7 @@ data/daily/
 data/rolling_seven_days/
 
 data/logs/*.log
-!data/logs/r6-matches.log
+!data/logs/matches.log
 
 __pycache__
 .ipynb_checkpoints/
