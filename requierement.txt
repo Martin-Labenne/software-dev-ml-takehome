@@ -1,6 +1,6 @@
-jupyterlab
-numpy
-pandas
-matplotlib
-polars-u64-idx
-psutil
+jupyterlab==4.2.5
+numpy==2.1.2
+pandas==2.2.3
+matplotlib==3.9.2
+polars-u64-idx==1.11.0
+psutil==6.1.0
