@@ -1,6 +1,8 @@
 import polars as pl
 import argparse
 from pathlib import Path
+import logging
+import psutil
 
 from src import daily_processor as processor
 from src.misc import get_last_seven_files, store_format_operator_top_100, store_format_match_top_10
@@ -14,8 +16,40 @@ DEFAULT_CHUNK_SIZE = 10**7
 RESULT_DIR = Path('data/rolling_seven_days/')
 DIR_DAILY_OPERATOR_TOP_100 = Path('data/daily/operator_top_100/')
 DIR_DAILY_MATCH_TOP_10 = Path('data/daily/match_top_10/')
+DEFAULT_LOGGING_PATH = Path('main.log')
 
+logging.basicConfig(
+    filename=DEFAULT_LOGGING_PATH,
+    level=logging.INFO,  # Log at INFO level and above
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+
+def log_performance_metrics():
+    cpu_times = psutil.cpu_times()
+    cpu_usage = psutil.cpu_percent(interval=1)
+    total_cpu_time = sum(cpu_times)  # Total CPU time in seconds
+
+    # Get RAM usage
+    ram_info = psutil.virtual_memory()
+    ram_usage = ram_info.percent
+    total_ram_mb = ram_info.total / (1024 * 1024)  # Convert to MB
+    used_ram_mb = ram_info.used / (1024 * 1024)    # Convert to MB
+
+
+    logging.info("CPU Usage: %s%%, CPU Time: User: %s s, System: %s s, Idle: %s s, Total CPU Time: %s s, RAM Usage: %s%%, Used RAM: %s MB, Total RAM: %s MB", 
+                 cpu_usage, cpu_times.user, cpu_times.system, cpu_times.idle, total_cpu_time, ram_usage, used_ram_mb, total_ram_mb)
+
+def log(function): 
+    def sub(*args, **kwargs):
+        log_performance_metrics()
+        res = function(*args, **kwargs)
+        log_performance_metrics()
+        return res
+    return sub
+
+@log
 def process_daily_log(log_path: Path, chunk_size: int):
+    logging.info("Starting to process daily log file")
     partition_map = processor.partition_log_file(log_path, chunk_size)
     
     # Daily operator and match processing
@@ -24,9 +58,11 @@ def process_daily_log(log_path: Path, chunk_size: int):
     
     match_top_10 = processor.compute_daily_match_top_10(partition_map)
     processor.store_daily_match_top_10(match_top_10, TODAY)
+    logging.info("Daily log processing completed.")
 
+@log
 def update_rolling_seven_days():
-
+    logging.info("Updating rolling seven days statistics")
     last_seven_files_operator_top_100 = get_last_seven_files(DIR_DAILY_OPERATOR_TOP_100)
     last_seven_files_match_top_10 = get_last_seven_files(DIR_DAILY_MATCH_TOP_10)
     
@@ -44,7 +80,7 @@ def update_rolling_seven_days():
     store_format_match_top_10(
         RESULT_DIR / f'match_top10_{TODAY}.txt', rolling_seven_days_match_top_10
     )
-
+    logging.info("Rolling seven days statistics updated.")
 
 def main(): 
     parser = argparse.ArgumentParser(description="Process daily log and update rolling seven-day stats or generate large match datasets.")
@@ -62,14 +98,14 @@ def main():
         case 'process':
             if not args.log_path:
                 parser.error("The 'process' action requires --log_path.")
-            
-            print("Processing daily log file...")
-            print("This action can take up to several minutes for very large log files")
-            
-            process_daily_log(args.log_path, args.chunk_size)
-            update_rolling_seven_days()
+            try: 
+                print("This action can take up to several minutes for very large log files")
+                process_daily_log(args.log_path, args.chunk_size)
+                update_rolling_seven_days()
 
-            print(f"Log processing and update completed. Find your results at {RESULT_DIR.resolve()}")
+                print(f"Log processing and update completed. Find your results at {RESULT_DIR.resolve()}")
+            except Exception as e:
+                logging.error("Error processing daily log file: %s", e)
         
         case 'generate-matches':
             if ( not args.output_path ) : 

@@ -95,7 +95,7 @@ python3 main.py --help
 - Currently, dates are not dynamically managed. For simplicity, I've set the date to `27-10-2024` and generated 10 previous dates from this point. To execute seven-day rolling updates on statistics, the system simply fetches the latest seven files from the `daily/match_top_10` and `daily/operator_top_100` directories.
 - Function organization could be streamlined for better readability.
 - Unit tests are not yet implemented but would enhance reliability.
-- Performance tracker or logger would enhance monitoring of the system.
+- Having a proper performance tracker or logger would enhance monitoring of the system.
 
 ## My personal setup
 

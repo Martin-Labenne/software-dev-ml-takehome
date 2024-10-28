@@ -17,3 +17,4 @@ lib64
 pyvenv.cfg
 share/
 
+main.log
