@@ -40,8 +40,15 @@ def store_format_operator_top_100(path: Path, df: pl.DataFrame) -> None:
         pl.col('nb_kills') 
     ])
 
+    with path.open(mode='w') as file: 
+        for operator_id, match_id, nb_kills in pre_format[0].iter_rows():
+            match_kills_pairs = list(zip(match_id, nb_kills))
+            match_kills_strings = [ f'{match}:{kills}' for match, kills in match_kills_pairs ]
+
+            file.write(f'{operator_id}|{','.join(match_kills_strings)}\n')
+
     with path.open(mode='a') as file: 
-        for operator_id, match_id, nb_kills in pre_format.iter_rows():
+        for operator_id, match_id, nb_kills in pre_format[1:].iter_rows():
             match_kills_pairs = list(zip(match_id, nb_kills))
             match_kills_strings = [ f'{match}:{kills}' for match, kills in match_kills_pairs ]
 
@@ -64,8 +71,14 @@ def store_format_match_top_10(path: Path, df: pl.DataFrame) -> None:
     if not path.parent.exists(): 
         path.parent.mkdir(parents=True, exist_ok=True)
 
+    with path.open(mode='w') as file:
+        for match_id, nb_kills in df[0].iter_rows():
+            match_kills_string = f'{match_id}:{nb_kills}\n'
+
+        file.write(match_kills_string)
+
     with path.open(mode='a') as file: 
-        for match_id, nb_kills in df.iter_rows():
+        for match_id, nb_kills in df[1:].iter_rows():
             match_kills_string = f'{match_id}:{nb_kills}\n'
 
             file.write(match_kills_string)
