@@ -97,7 +97,7 @@ def scan_matches(
         return _scan_matches_iter_chunks(path, chunksize)
     
 def store_matches(
-    path: Path | IO, 
+    path: Path, 
     df: pl.DataFrame
 ) -> None : 
     if not path.parent.exists():
@@ -111,17 +111,9 @@ def _generate_corrupted_rows(df: pl.DataFrame, corruption_ratio: float = 0.001) 
     Randomly modifies a proportion of rows to include invalid or None values 
     across columns like 'player_id', 'match_id', 'operator_id', and 'nb_kills'.
 
-    Parameters:
-    -----------
-    df : pl.DataFrame
-        The DataFrame to corrupt.
-    corruption_ratio : float, optional
-        Fraction of rows to corrupt (default is 0.001).
-
-    Returns:
-    --------
-    pl.DataFrame
-        DataFrame with the specified proportion of corrupted rows.
+    Note: 
+    -----
+    Currently does not scale very well
     """
     if corruption_ratio == 0: 
         return df
@@ -252,3 +244,20 @@ def generate_matches(n_matches:int=1000, corruption_ratio: float = 0.001) -> pl.
     corruped_matches_df = _generate_corrupted_rows(matches_df, corruption_ratio)
 
     return corruped_matches_df
+
+def generate_millions_matchs(
+    n_million: int, 
+    path: Path,
+    corruption_ratio: float = 0.001
+) -> None : 
+
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    with path.open('w') as file: 
+        generate_matches(10**5, corruption_ratio).write_csv(file=path, include_header=False)
+
+    with path.open('a') as file: 
+        for _ in range((n_million * 10) - 1): 
+            generate_matches(10**5, corruption_ratio).write_csv(file=file, include_header=False)
+

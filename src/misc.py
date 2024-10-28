@@ -1,10 +1,6 @@
 import polars as pl
-import re
 from tempfile import NamedTemporaryFile
 from pathlib import Path
-from typing import Union, IO
-
-FilePath = Union[str, bytes] 
 
 def store_tempfile(df:pl.DataFrame) -> str: 
     with NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as temp_file:
